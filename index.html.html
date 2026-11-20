@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abidjan Moto</title>
+<style>
+  * { box-sizing: border-box; font-family: -apple-system, Arial, sans-serif; }
+  body { margin: 0; background: #fff7f0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .card { width: 100%; max-width: 400px; padding: 28px 22px; text-align: center; }
+  h1 { color: #ff6a00; margin: 0 0 6px; font-size: 32px; }
+  p.slogan { color: #555; margin: 0 0 28px; }
+  label { display: block; text-align: left; font-weight: 600; margin-bottom: 8px; }
+  .phone { display: flex; gap: 8px; margin-bottom: 16px; }
+  .phone span { background: #fff; border: 2px solid #ddd; border-radius: 12px; padding: 14px 12px; font-size: 18px; }
+  input { flex: 1; width: 100%; border: 2px solid #ddd; border-radius: 12px; padding: 14px 12px; font-size: 18px; }
+  input:focus { outline: none; border-color: #ff6a00; }
+  button { width: 100%; background: #ff6a00; color: #fff; border: 0; border-radius: 12px; padding: 16px; font-size: 18px; font-weight: 700; }
+  button:disabled { opacity: .6; }
+  #message { margin-top: 16px; min-height: 22px; font-size: 15px; }
+  .error { color: #c0392b; }
+  .ok { color: #1e8e3e; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Abidjan Moto</h1>
+  <p class="slogan">Ton colis, vite et pas cher</p>
+
+  <!-- Étape 1 : numéro de téléphone -->
+  <div id="step-phone">
+    <label for="phone">Ton numéro de téléphone</label>
+    <div class="phone">
+      <span>+225</span>
+      <input id="phone" type="tel" inputmode="numeric" placeholder="07 00 00 00 00">
+    </div>
+    <button id="btn-send">Recevoir le code SMS</button>
+  </div>
+
+  <!-- Étape 2 : code SMS -->
+  <div id="step-code" class="hidden">
+    <label for="code">Code reçu par SMS</label>
+    <div class="phone">
+      <input id="code" type="tel" inputmode="numeric" maxlength="6" placeholder="123456">
+    </div>
+    <button id="btn-verify">Valider</button>
+  </div>
+
+  <!-- Étape 3 : connecté -->
+  <div id="step-done" class="hidden">
+    <h2>Bienvenue !</h2>
+    <p>Tu es connecté. La carte arrive à la prochaine étape.</p>
+  </div>
+
+  <div id="message"></div>
+  <div id="recaptcha-container"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { getAuth, RecaptchaVerifier, signInWithPhoneNumber }
+    from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+  // 👉 COLLE ICI LA CONFIGURATION DE TON PROJET FIREBASE
+  const firebaseConfig = {
+    apiKey: "AIzaSyCW9EIO2pQg4Q2FFBKJMIllAQAiB22QjdM",
+    authDomain: "abidjan-moto.firebaseapp.com",
+    projectId: "abidjan-moto",
+    storageBucket: "abidjan-moto.firebasestorage.app",
+    messagingSenderId: "638276146258",
+    appId: "1:638276146258:web:f320d9c780a5a84b61fb8b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  auth.languageCode = "fr";
+
+  const $ = (id) => document.getElementById(id);
+  const msg = (text, cls = "") => { $("message").textContent = text; $("message").className = cls; };
+
+  const recaptcha = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+  let confirmation = null;
+
+  $("btn-send").onclick = async () => {
+    const digits = $("phone").value.replace(/\D/g, "").replace(/^0+(?=\d{10})/, "");
+    if (digits.length < 8) { msg("Numéro invalide.", "error"); return; }
+    $("btn-send").disabled = true;
+    msg("Envoi du code...");
+    try {
+      confirmation = await signInWithPhoneNumber(auth, "+225" + digits, recaptcha);
+      $("step-phone").classList.add("hidden");
+      $("step-code").classList.remove("hidden");
+      msg("Code envoyé. Vérifie tes SMS.", "ok");
+    } catch (e) {
+      console.error(e);
+      msg("Impossible d'envoyer le code : " + e.code, "error");
+      $("btn-send").disabled = false;
+    }
+  };
+
+  $("btn-verify").onclick = async () => {
+    const code = $("code").value.trim();
+    if (code.length < 6) { msg("Entre les 6 chiffres.", "error"); return; }
+    $("btn-verify").disabled = true;
+    try {
+      await confirmation.confirm(code);
+      $("step-code").classList.add("hidden");
+      $("step-done").classList.remove("hidden");
+      msg("");
+    } catch (e) {
+      console.error(e);
+      msg("Code incorrect.", "error");
+      $("btn-verify").disabled = false;
+    }
+  };
+</script>
+</body>
+</html>
